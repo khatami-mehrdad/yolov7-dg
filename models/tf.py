@@ -389,7 +389,10 @@ class TFConcat(keras.layers.Layer):
         self.d = 3
 
     def call(self, inputs):
-        return tf.concat(inputs, self.d)
+        y = inputs[0]
+        for input in inputs[1:]:
+            y = tf.concat([y, input], self.d)
+        return y
 
 
 def parse_model(d, ch, model, imgsz):  # model_dict, input_channels(3)
@@ -429,6 +432,8 @@ def parse_model(d, ch, model, imgsz):  # model_dict, input_channels(3)
                 args[1] = [list(range(args[1] * 2))] * len(f)
             if has_Focus_layer(model):
                 imgsz_reform = [val * 2 for val in imgsz]
+            else:
+                imgsz_reform = imgsz
             args.append(imgsz_reform)
         else:
             c2 = ch[f]
