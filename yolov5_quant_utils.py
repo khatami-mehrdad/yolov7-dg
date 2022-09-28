@@ -26,7 +26,8 @@ def datasetGenerateImagesYolov5(image_size,image_mask, maximum_match, print_file
         img_array = np.array(letterbox_img).astype(np.float32)
         img_array2=(img_array)/255
         torch_image=torch.tensor(img_array2)
-        keras_input=torch.cat([torch_image[..., ::2, ::2,:], torch_image[..., 1::2, ::2,:], torch_image[..., ::2, 1::2,:], torch_image[..., 1::2, 1::2,:]], 2)
+        keras_input = torch_image
+        # keras_input=torch.cat([torch_image[..., ::2, ::2,:], torch_image[..., 1::2, ::2,:], torch_image[..., ::2, 1::2,:], torch_image[..., 1::2, 1::2,:]], 2)
         y=to_numpy(keras_input)
         yield [tf.expand_dims(y, axis=0)]
         

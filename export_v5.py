@@ -16,18 +16,8 @@ from utils.general import set_logging, check_img_size, colorstr, check_version, 
 from utils.torch_utils import select_device
 from utils.add_nms import RegisterNMS
 
-import onnx_setting
 
 from models.common import has_Focus_layer
-
-def reformat_img_wFocus(img, has_Focus:bool):
-    if onnx_setting.export_onnx == True:
-        import copy
-        shape = img.shape
-        img_out = copy.deepcopy(img)
-        if has_Focus:
-            img_out = img_out.view( shape[0], shape[1] * 4, shape[2]//2, shape[3]//2 )
-    return img_out
 
 def export_saved_model(model,
                        im,
@@ -46,19 +36,17 @@ def export_saved_model(model,
     import tensorflow as tf
     from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
 
-    # 
-    onnx_setting.export_onnx = True
-    im_reform = reformat_img_wFocus(im, has_Focus_layer(model))
     #
     from models.tf import TFDetect, TFModel
-
+    TFDetect.export = True
+    #
     print(f'\n{prefix} starting export with tensorflow {tf.__version__}...')
     f = str(file).replace('.pt', '_saved_model')
-    batch_size, ch, *imgsz = list(im_reform.shape)  # BCHW
+    batch_size, ch, *imgsz = list(im.shape)  # BCHW
 
     tf_model = TFModel(cfg=model.yaml, ch=ch, model=model, nc=model.nc, imgsz=imgsz)
-    im_reform = tf.zeros((batch_size, *imgsz, ch))  # BHWC order for TensorFlow
-    _ = tf_model.predict(im_reform, tf_nms, agnostic_nms, topk_per_class, topk_all, iou_thres, conf_thres)
+    im = tf.zeros((batch_size, *imgsz, ch))  # BHWC order for TensorFlow
+    _ = tf_model.predict(im, tf_nms, agnostic_nms, topk_per_class, topk_all, iou_thres, conf_thres)
     inputs = tf.keras.Input(shape=(*imgsz, ch), batch_size=None if dynamic else batch_size)
     outputs = tf_model.predict(inputs, tf_nms, agnostic_nms, topk_per_class, topk_all, iou_thres, conf_thres)
     keras_model = tf.keras.Model(inputs=inputs, outputs=outputs)
@@ -73,7 +61,7 @@ def export_saved_model(model,
         frozen_func = convert_variables_to_constants_v2(m)
         tfm = tf.Module()
         tfm.__call__ = tf.function(lambda x: frozen_func(x)[:4] if tf_nms else frozen_func(x)[0], [spec])
-        tfm.__call__(im_reform)
+        tfm.__call__(im)
         tf.saved_model.save(tfm,
                             f,
                             options=tf.saved_model.SaveOptions(experimental_custom_gradients=False)
@@ -104,13 +92,12 @@ def export_tflite(keras_model, im, file, int8, data, nms=None, agnostic_nms=None
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     if int8:
         from models.tf import representative_dataset_gen
-        with open(data) as f:
-            data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
-        if has_Focus_layer:
-            converter.representative_dataset = lambda: datasetGenerateImagesYolov5(image_size=imgsz, image_mask=data_dict['val']+'/*.jpg', maximum_match=max_int8_img_cnt, print_filenames=True )
-        else:
-            dataset = LoadImages(data_dict['val'], img_size=imgsz)
-            converter.representative_dataset = lambda: representative_dataset_gen(dataset, ncalib=max_int8_img_cnt)
+        # if has_Focus_layer:
+        converter.representative_dataset = lambda: datasetGenerateImagesYolov5(image_size=imgsz, image_mask=data+'/*.jpg', maximum_match=max_int8_img_cnt, print_filenames=True )
+        # else:
+        #     dataset = LoadImages(data, img_size=imgsz)
+        #     converter.representative_dataset = lambda: representative_dataset_gen(dataset, ncalib=max_int8_img_cnt)
+
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.target_spec.supported_types = []
         converter.inference_input_type = tf.uint8  # or tf.int8
@@ -189,7 +176,6 @@ if __name__ == '__main__':
         #     m.forward = m.forward_export  # assign forward (optional)
     model.model[-1].export = not opt.grid  # set Detect() layer grid export
     
-    onnx_setting.export_onnx = False
     y = model(img)  # dry run
     if opt.include_nms:
         model.model[-1].include_nms = True
@@ -283,10 +269,7 @@ if __name__ == '__main__':
                 else:
                     model.model[-1].concat = True
 
-            onnx_setting.export_onnx = True
-            im_reform = reformat_img_wFocus(img, has_Focus_layer(model))
-
-            torch.onnx.export(model, im_reform, f, verbose=False, opset_version=12, input_names=['images'],
+            torch.onnx.export(model, img, f, verbose=False, opset_version=12, input_names=['images'],
                             output_names=output_names,
                             dynamic_axes=dynamic_axes)
 
