@@ -10,7 +10,7 @@ import os
 import glob
 
 
-def datasetGenerateImagesYolov5(image_size,image_mask, maximum_match, print_filenames ):
+def datasetGenerateImagesYolov7(image_size,image_mask, maximum_match, print_filenames ):
     """
     Dataset generator for post-training quantization based on supplied search mask
     [in] image_mask - image search mask string: some/path/**/*.jpg - look in all subfolders of some/path/ for files with jpg extention

@@ -78,7 +78,7 @@ def export_tflite(keras_model, im, file, int8, data, nms=None, agnostic_nms=None
     # try:
     from utils.datasets import LoadImages
     import tensorflow as tf
-    from yolov5_quant_utils import datasetGenerateImagesYolov5
+    from yolov5_quant_utils import datasetGenerateImagesYolov7
     import yaml
 
     print(f'\n{prefix} starting export with tensorflow {tf.__version__}...')
@@ -93,7 +93,7 @@ def export_tflite(keras_model, im, file, int8, data, nms=None, agnostic_nms=None
     if int8:
         from models.tf import representative_dataset_gen
         # if has_Focus_layer:
-        converter.representative_dataset = lambda: datasetGenerateImagesYolov5(image_size=imgsz, image_mask=data+'/*.jpg', maximum_match=max_int8_img_cnt, print_filenames=True )
+        converter.representative_dataset = lambda: datasetGenerateImagesYolov7(image_size=imgsz, image_mask=data+'/*.jpg', maximum_match=max_int8_img_cnt, print_filenames=True )
         # else:
         #     dataset = LoadImages(data, img_size=imgsz)
         #     converter.representative_dataset = lambda: representative_dataset_gen(dataset, ncalib=max_int8_img_cnt)
